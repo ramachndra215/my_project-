@@ -3,13 +3,20 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .serializers import CustomUserRegistrationSerializer
-
+from .models import Skill
 class RegisterUserView(APIView):
     permission_classes = ()  # Allow any user (authenticated or not) to access this view
 
     def post(self, request):
-        print(request.data)
-        serializer = CustomUserRegistrationSerializer(data=request.data)
+        data = request.data.copy()
+
+        # Convert skill names to Skill IDs
+        skill_names = data.get('selected_skills', [])
+        if isinstance(skill_names, list):
+            skill_qs = Skill.objects.filter(name__in=skill_names)
+            data['selected_skills'] = [skill.id for skill in skill_qs]
+
+        serializer = CustomUserRegistrationSerializer(data=data)
         if serializer.is_valid():
             user = serializer.save()
             return Response({
@@ -17,9 +24,9 @@ class RegisterUserView(APIView):
                 'username': user.username,
                 'email': user.email,
             }, status=status.HTTP_201_CREATED)
-        
-        # 🔥 This handles the invalid case
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class UserProfileView(APIView):
